@@ -1,0 +1,32 @@
+# Copy this file to .env and fill in your actual values
+
+# Base URL for testing
+BASE_URL=https://www.saucedemo.com
+
+# Google Sheets Configuration (Optional - framework works without this)
+# To set up Google Sheets integration:
+# 1. Create a Google Cloud project
+# 2. Enable Google Sheets API  
+# 3. Create a Service Account and download JSON credentials
+# 4. Share your Google Sheet with the service account email
+# 5. Extract these values from the JSON file:
+
+GOOGLE_SHEETS_PRIVATE_KEY_ID=your_private_key_id_here
+GOOGLE_SHEETS_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYour_private_key_here_with_\n_newlines_as_\\n\n-----END PRIVATE KEY-----\n"
+GOOGLE_SHEETS_CLIENT_EMAIL=your-service-account@your-project.iam.gserviceaccount.com
+GOOGLE_SHEETS_CLIENT_ID=your_client_id_here
+GOOGLE_SHEETS_CLIENT_CERT_URL=https://www.googleapis.com/robot/v1/metadata/x509/your-service-account%40your-project.iam.gserviceaccount.com
+
+# Google Spreadsheet ID (from the URL: https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/edit)
+GOOGLE_SPREADSHEET_ID=your_spreadsheet_id_here
+
+# Test Environment Settings
+TEST_ENV=development
+LOG_LEVEL=info
+HEADLESS=true
+SLOW_MO=0
+
+# Optional: Sauce Labs Configuration (for remote testing)
+SAUCE_USERNAME=your_sauce_username
+SAUCE_ACCESS_KEY=your_sauce_access_key
+

@@ -1,0 +1,37 @@
+{
+  "name": "playwright-sdet-framework",
+  "version": "1.0.0",
+  "description": "Playwright testing framework with DRY principles, Google Sheets integration, and custom logging",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "npx playwright test",
+    "test:headed": "npx playwright test --headed",
+    "test:ui": "npx playwright test --ui",
+    "test:debug": "npx playwright test --debug",
+    "test:sauce": "npx playwright test --grep=\"@sauce\"",
+    "report": "npx playwright show-report test-results/html-report",
+    "install:browsers": "npx playwright install",
+    "demo": "node scripts/demo.js",
+    "demo:locators": "node scripts/locator-demo.js",
+    "setup": "npm install && npx playwright install",
+    "lint": "echo 'No linting configured yet'"
+  },
+  "keywords": [
+    "playwright",
+    "testing",
+    "automation",
+    "sdet"
+  ],
+  "author": "SDET Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@playwright/test": "^1.40.0"
+  },
+  "dependencies": {
+    "googleapis": "^128.0.0",
+    "dotenv": "^16.3.1",
+    "winston": "^3.11.0",
+    "allure-playwright": "^2.10.0"
+  }
+}
