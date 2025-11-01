@@ -10,17 +10,42 @@ export class BasePage {
 
   /**
    * Helper method to extract locator info
-   * @param {string|Locator} locator - Element locator (string or Locator object)
+   * Automatically resolves any locator type to a usable Playwright locator
+   * @param {string|Locator|PlaywrightLocator} locator - Element locator
    * @param {string} fallbackName - Fallback name if locator is string
-   * @returns {Object} Object with selector and name
+   * @returns {Object} Object with selector (Playwright locator) and name
    */
   _getLocatorInfo(locator, fallbackName = "element") {
+    // Handle custom Locator object
     if (locator instanceof Locator) {
       return {
-        selector: locator.selector,
+        selector: locator.resolve(this.page), // Pass page context to resolve
         name: `'${locator.name}'`,
       };
     }
+
+    // Handle Playwright locator object directly
+    if (
+      locator &&
+      typeof locator === "object" &&
+      typeof locator.toString === "function" &&
+      typeof locator.click === "function"
+    ) {
+      return {
+        selector: locator, // Already a Playwright locator
+        name: fallbackName,
+      };
+    }
+
+    // Handle string selector - wrap with page.locator()
+    if (typeof locator === "string") {
+      return {
+        selector: this.page.locator(locator),
+        name: fallbackName,
+      };
+    }
+
+    // Fallback
     return {
       selector: locator,
       name: fallbackName,
@@ -48,7 +73,7 @@ export class BasePage {
     this.logger.info(
       `Finding locator: ${locatorInfo.selector} (${locatorInfo.name})`
     );
-    const element = this.page.locator(locatorInfo.selector);
+    const element = locatorInfo.selector;
 
     this.logger.info(`Waiting for ${locatorInfo.name} to be visible`);
     await element.waitFor({ state: "visible" });
@@ -70,7 +95,7 @@ export class BasePage {
     this.logger.info(
       `Finding locator: ${locatorInfo.selector} (${locatorInfo.name})`
     );
-    const element = this.page.locator(locatorInfo.selector);
+    const element = locatorInfo.selector;
 
     this.logger.info(`Waiting for ${locatorInfo.name} to be visible`);
     await element.waitFor({ state: "visible" });
@@ -95,10 +120,13 @@ export class BasePage {
     this.logger.info(
       `Waiting for ${locatorInfo.name} to appear: ${locatorInfo.selector}`
     );
-    await this.page.locator(locatorInfo.selector).waitFor({
+
+    // locatorInfo.selector is already a Playwright locator (resolved), use it directly
+    await locatorInfo.selector.waitFor({
       state: "visible",
       timeout,
     });
+
     this.logger.info(`${locatorInfo.name} appeared successfully`);
   }
 
@@ -114,7 +142,7 @@ export class BasePage {
     this.logger.info(
       `Finding locator: ${locatorInfo.selector} (${locatorInfo.name})`
     );
-    const element = this.page.locator(locatorInfo.selector);
+    const element = locatorInfo.selector;
 
     this.logger.info(`Waiting for ${locatorInfo.name} to be visible`);
     await element.waitFor({ state: "visible" });
@@ -135,7 +163,7 @@ export class BasePage {
     this.logger.info(
       `Verifying ${locatorInfo.name} is visible: ${locatorInfo.selector}`
     );
-    await expect(this.page.locator(locatorInfo.selector)).toBeVisible();
+    await expect(locatorInfo.selector).toBeVisible();
     this.logger.info(`${locatorInfo.name} is visible as expected`);
   }
 
@@ -151,9 +179,7 @@ export class BasePage {
     this.logger.info(
       `Verifying ${locatorInfo.name} contains text: "${expectedText}"`
     );
-    await expect(this.page.locator(locatorInfo.selector)).toContainText(
-      expectedText
-    );
+    await expect(locatorInfo.selector).toContainText(expectedText);
     this.logger.info(
       `${locatorInfo.name} contains expected text: "${expectedText}"`
     );
@@ -195,7 +221,7 @@ export class BasePage {
     this.logger.info(
       `Finding locator: ${locatorInfo.selector} (${locatorInfo.name})`
     );
-    const element = this.page.locator(locatorInfo.selector);
+    const element = locatorInfo.selector;
 
     this.logger.info(`Waiting for ${locatorInfo.name} to be visible`);
     await element.waitFor({ state: "visible" });
@@ -218,7 +244,7 @@ export class BasePage {
     this.logger.info(
       `Finding locator: ${locatorInfo.selector} (${locatorInfo.name})`
     );
-    const element = this.page.locator(locatorInfo.selector);
+    const element = locatorInfo.selector;
 
     this.logger.info(`Waiting for ${locatorInfo.name} to be visible`);
     await element.waitFor({ state: "visible" });
@@ -226,6 +252,15 @@ export class BasePage {
     this.logger.info(`Clearing ${locatorInfo.name}`);
     await element.clear();
     this.logger.info(`Successfully cleared ${locatorInfo.name}`);
+  }
+
+  async isElementVisible(locator, elementName) {
+    const locatorInfo = this._getLocatorInfo(locator, elementName);
+    this.logger.info(
+      `Checking if ${locatorInfo.name} is visible. Locator: ${locatorInfo.selector}`
+    );
+
+    return await locatorInfo.selector.isVisible();
   }
 }
 

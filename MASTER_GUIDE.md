@@ -246,6 +246,61 @@ const text = await page.getText(locator);
 await page.takeScreenshot(name);
 ```
 
+#### Enhanced Locator System
+
+The framework now supports both **string selectors** and **Playwright locators** seamlessly through the custom `Locator` class:
+
+```javascript
+// Define locators in your page object
+export class HomePage extends BasePage {
+    constructor(page) {
+        super(page);
+        
+        // ✅ String selectors work
+        this.searchBox = locator('[data-test="search"]', 'Search box', page);
+        
+        // ✅ Playwright locators also work
+        this.searchButton = locator(
+            page.getByRole('button', { name: 'Search' }), 
+            'Search button', 
+            page
+        );
+        
+        // ✅ By test ID
+        this.resultsList = locator(
+            page.getByTestId('results'),
+            'Results list',
+            page
+        );
+    }
+}
+```
+
+**Why this matters:**
+- Use CSS/XPath for complex or simple selectors: `[data-test="id"]`, `#element-id`, `//xpath/expression`
+- Use Playwright locators for accessibility: `page.getByRole()`, `page.getByLabel()`, `page.getByTestId()`
+- All locators work identically in page methods - no duplication, single unified system!
+
+**How it works internally:**
+1. `locator()` stores both the selector/Playwright locator and the page reference
+2. When used in a page method, it calls `locator.resolve(this.page)`
+3. `resolve()` returns the proper Playwright locator object
+4. All page methods use the locator directly without extra wrapping
+
+**Example usage:**
+```javascript
+async search(query) {
+    // Works with string selectors
+    await this.fill(this.searchBox, query);
+    
+    // Works with Playwright locators
+    await this.click(this.searchButton);
+    
+    // Works with any locator type - all treated the same!
+    await this.waitForElement(this.resultsList);
+}
+```
+
 #### Logger Class
 Detailed logging with multiple levels:
 
@@ -258,6 +313,8 @@ logger.error('Error message', error);            // ❌ Errors
 logger.warn('Warning message');                  // ⚠️ Warnings
 logger.debug('Debug message');                   // 🐛 Debug
 ```
+
+**Unified Format**: All logs follow `[YYYY-MM-DD HH:mm:ss][LEVEL] - message`
 
 #### EnvironmentConfig Class
 Manage environments and test suites:
@@ -286,9 +343,9 @@ export class HomePage extends BasePage {
         super(page);
         
         // Define locators with human-readable names
-        this.searchBox = locator('[data-test="search"]', 'Search box');
-        this.searchButton = locator('[data-test="search-btn"]', 'Search button');
-        this.resultsList = locator('.results', 'Results list');
+        this.searchBox = locator('[data-test="search"]', 'Search box', page);
+        this.searchButton = locator('[data-test="search-btn"]', 'Search button', page);
+        this.resultsList = locator('.results', 'Results list', page);
     }
 
     async search(query) {
@@ -352,10 +409,24 @@ test.describe('Homepage Search @smoke', () => {
 ✅ **Independent Tests**: Each test should work alone  
 ✅ **Fixtures for Setup**: Use fixtures for common setup  
 ✅ **Error Handling**: Implement try-catch for important actions  
+✅ **Unified Locator System**: Use `locator()` for both string selectors and Playwright locators  
 
 ---
 
 ## Test Data Management
+
+### Overview
+
+The framework supports **environment-specific test data** from Google Sheets with a Java-like properties API:
+
+```javascript
+const properties = await testDataProperties.getTestData("TIK001");
+
+// Access test data - same syntax as Java .get()
+const username = properties.get("username");
+const email = properties.get("emailDomain");
+const phone = properties.get("phonePrefix");
+```
 
 ### Option 1: Fallback Data (No Setup)
 
@@ -390,21 +461,74 @@ const testData = {
 4. Share Google Sheet with service account email
 5. Add credentials to `.env`
 
-#### Usage:
+#### Google Sheets Format:
+```
+testname | staging_data | preprod_data | prod_data
+---------|--------------|--------------|----------
+TIK001 | (emailDomain:@yopmail.com, phonePrefix:+62777) | (emailDomain:@preprod.yopmail.com) | (emailDomain:@prod.yopmail.com, phonePrefix:+62888)
+TIK002 | (username:staging_user, password:pass123) | (username:preprod_user) | (username:prod_user)
+```
+
+#### Usage in Tests:
+
 ```javascript
-test('Login', async ({ testData }) => {
-    const user = testData.users.find(u => u.user_type === 'admin_user');
-    await loginPage.login(user.username, user.password);
+test('TIK001 - Verify register new user', async ({ 
+    testDataProperties, 
+    page, 
+    logger 
+}) => {
+    // Get test data for the current environment
+    const properties = await testDataProperties.getTestData("TIK001");
+    
+    // Access individual properties
+    logger.info(`Using email: ${properties.get("emailDomain")}`);
+    logger.info(`Using phone: ${properties.get("phonePrefix")}`);
+    
+    // Log the entire data object (without circular references!)
+    logger.info(`Test Data: ${JSON.stringify(properties.getAll(), null, 2)}`);
+    
+    // Use with page objects
+    await homePage.registerNewUser(properties);
 });
 ```
 
-#### Google Sheets Format:
+#### TestDataProperties API:
+
+```javascript
+// Get a single value (with default if not found)
+const email = properties.get("email", "default@example.com");
+
+// Get a required value (throws if not found)
+const username = properties.getRequired("username");
+
+// Get all data as object (use for logging without circular refs!)
+const allData = properties.getAll();  // Returns: { emailDomain: '...', phonePrefix: '...', ... }
+
+// Check if key exists
+if (properties.has("username")) {
+    // ...
+}
+
+// Get multiple values at once
+const { username, email, phone } = properties.getMultiple("username", "email", "phone");
+
+// Set a value during test
+properties.set("generatedEmail", `user_${Date.now()}@test.com`);
 ```
-testname | testdata
----------|----------
-SL001 | (user_type:standard_user, username:john, password:secret)
-SL002 | (product_name:Flight, price:$150)
+
+#### Important: Logging Test Data
+
+**Wrong way (circular reference error):**
+```javascript
+logger.info(`Test Data: ${JSON.stringify(properties)}`);  // ❌ Error!
 ```
+
+**Right way (use .getAll()):**
+```javascript
+logger.info(`Test Data: ${JSON.stringify(properties.getAll())}`);  // ✅ Works!
+```
+
+The `TestDataProperties` class contains a `logger` property that creates circular references. Use `.getAll()` to get only the test data without the logger.
 
 ### Option 3: Common Functions
 
@@ -617,18 +741,25 @@ tests/
 
 ### Locator Strategy
 ```javascript
-// ✅ Best - Test attribute
-this.element = locator('[data-test="id"]', 'Element name');
+// ✅ Best - Test attribute (most reliable)
+this.element = locator('[data-test="id"]', 'Element name', page);
 
-// ✅ Good - ID
-this.element = locator('[id="unique-id"]', 'Element name');
+// ✅ Great - Playwright accessibility locators (human-readable)
+this.button = locator(page.getByRole('button', { name: 'Click' }), 'Click Button', page);
+this.input = locator(page.getByLabel('Email'), 'Email Input', page);
+this.element = locator(page.getByTestId('element-id'), 'Element ID', page);
 
-// ⚠️ OK - Class
-this.element = locator('.class-name', 'Element name');
+// ✅ Good - ID attribute
+this.element = locator('[id="unique-id"]', 'Element name', page);
 
-// ❌ Avoid - XPath
-this.element = locator('xpath=//div[@class="..."]', 'Element name');
+// ⚠️ OK - Class name
+this.element = locator('.class-name', 'Element name', page);
+
+// ❌ Avoid - XPath (brittle)
+this.element = locator('xpath=//div[@class="..."]', 'Element name', page);
 ```
+
+**Key Point**: Both string selectors and Playwright locators work identically in all page methods!
 
 ### Logging Pattern
 ```javascript

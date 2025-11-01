@@ -20,6 +20,13 @@ export class GoogleSheetsManager {
     parseTestData(str) {
         if (!str) return {};
         let s = String(str).trim();
+        
+        // Remove trailing semicolon if present
+        if (s.endsWith(';')) {
+            s = s.slice(0, -1).trim();
+        }
+        
+        // Strip outer parentheses
         if (s.startsWith('(') && s.endsWith(')')) {
             s = s.slice(1, -1).trim();
         }
@@ -71,8 +78,8 @@ export class GoogleSheetsManager {
         try {
             if (!this.sheets) await this.initialize();
 
-            // Read two columns: testname and testdata. Read a large range to be safe.
-            const range = `${sheetName}!A1:B1000`;
+            // Read all columns to support environment-specific data (staging_data, preprod_data, prod_data)
+            const range = `${sheetName}!A1:Z1000`;
             const response = await this.sheets.spreadsheets.values.get({
                 spreadsheetId: this.spreadsheetId,
                 range,
@@ -89,7 +96,29 @@ export class GoogleSheetsManager {
             const out = dataRows.map(r => {
                 const testname = r[nameIdx] || r[0] || '';
                 const raw = r[dataIdx] || r[1] || '';
-                return { testname: String(testname).trim(), testdataRaw: raw, testdata: this.parseTestData(raw) };
+                
+                // Build object with all environment-specific columns
+                const testdataObj = this.parseTestData(raw);
+                
+                // Add environment-specific columns if they exist
+                const envObj = {};
+                headers.forEach((header, idx) => {
+                    const normalizedHeader = header.toLowerCase();
+                    if (normalizedHeader.includes('staging')) {
+                        envObj['staging'] = this.parseTestData(r[idx] || '');
+                    } else if (normalizedHeader.includes('preprod')) {
+                        envObj['preprod'] = this.parseTestData(r[idx] || '');
+                    } else if (normalizedHeader.includes('prod')) {
+                        envObj['prod'] = this.parseTestData(r[idx] || '');
+                    }
+                });
+                
+                return { 
+                    testname: String(testname).trim(), 
+                    testdataRaw: raw, 
+                    testdata: testdataObj,
+                    environments: envObj 
+                };
             });
 
             this.logger.info(`Retrieved ${out.length} rows from ${sheetName}`);
@@ -209,6 +238,64 @@ export class GoogleSheetsManager {
     }
 
     /**
+     * Get environment-specific test data for a test case
+     * Supports Google Sheets format with environment columns:
+     * testname | staging_data | preprod_data | prod_data
+     * 
+     * @param {string} testName - Name of the test (e.g., 'SL001', 'Login_Test')
+     * @param {string} environment - Environment: 'staging', 'preprod', 'production'
+     * @returns {Promise<TestDataProperties>} TestDataProperties object with .get() method
+     */
+    async getTestDataByEnvironment(testName, environment = 'staging') {
+        try {
+            if (!this.sheets) {
+                await this.initialize();
+            }
+
+            const all = await this.getAllTestData();
+            const row = all.find(r => String(r.testname).trim().toLowerCase() === String(testName).trim().toLowerCase());
+
+            if (!row) {
+                this.logger.warn(`Test data for "${testName}" not found in Google Sheets`);
+                return new TestDataProperties({});
+            }
+
+            // Normalize environment name
+            const envKey = environment === 'production' ? 'prod' : environment.toLowerCase();
+            let envData = {};
+
+            // Priority 1: Check for environment-specific columns (staging_data, preprod_data, prod_data)
+            if (row.environments && row.environments[envKey]) {
+                envData = row.environments[envKey];
+                this.logger.info(`Retrieved test data for "${testName}" on ${environment} from environment-specific column`);
+            } 
+            // Priority 2: Check for environment keys within testdata object (legacy format)
+            else if (row.testdata && typeof row.testdata === 'object' && row.testdata[envKey]) {
+                if (typeof row.testdata[envKey] === 'string') {
+                    envData = this.parseTestData(row.testdata[envKey]);
+                } else {
+                    envData = row.testdata[envKey];
+                }
+                this.logger.info(`Retrieved test data for "${testName}" on ${environment} from testdata object`);
+            } 
+            // Priority 3: Use the testdata field directly (shared data)
+            else if (row.testdata && typeof row.testdata === 'object' && Object.keys(row.testdata).length > 0) {
+                envData = row.testdata;
+                this.logger.info(`Retrieved test data for "${testName}" - using shared testdata (no environment-specific override)`);
+            }
+            // Priority 4: Empty
+            else {
+                this.logger.info(`Retrieved test data for "${testName}" on ${environment} - no data found`);
+            }
+
+            return new TestDataProperties(envData);
+        } catch (error) {
+            this.logger.error(`Error fetching environment-specific test data: ${error.message}`);
+            throw error;
+        }
+    }
+
+    /**
      * Get product test data
      * @returns {Promise<Array>} Array of product data
      */
@@ -306,6 +393,78 @@ export class GoogleSheetsManager {
             this.logger.error('Error fetching configuration data:', error.message);
             throw error;
         }
+    }
+}
+
+/**
+ * TestDataProperties class - provides key-value access to test data
+ * Allows accessing test data like: properties.get('username')
+ */
+export class TestDataProperties {
+    constructor(data = {}) {
+        this.data = data;
+        this.logger = new Logger();
+    }
+
+    /**
+     * Get a value by key from the test data
+     * @param {string} key - The key to retrieve
+     * @param {*} defaultValue - Default value if key not found
+     * @returns {*} The value or defaultValue
+     */
+    get(key, defaultValue = null) {
+        if (key in this.data) {
+            return this.data[key];
+        }
+        if (defaultValue !== null) {
+            this.logger.warn(`Key "${key}" not found in test data, using default: ${defaultValue}`);
+        } else {
+            this.logger.warn(`Key "${key}" not found in test data`);
+        }
+        return defaultValue;
+    }
+
+    /**
+     * Get a value, throw error if not found
+     * @param {string} key - The key to retrieve
+     * @returns {*} The value
+     * @throws {Error} If key not found
+     */
+    getRequired(key) {
+        if (key in this.data) {
+            return this.data[key];
+        }
+        throw new Error(`Required key "${key}" not found in test data`);
+    }
+
+    /**
+     * Get all data as object
+     * @returns {Object} All test data
+     */
+    getAll() {
+        return { ...this.data };
+    }
+
+    /**
+     * Check if key exists
+     * @param {string} key - The key to check
+     * @returns {boolean} True if key exists
+     */
+    has(key) {
+        return key in this.data;
+    }
+
+    /**
+     * Get multiple keys at once
+     * @param {string[]} keys - Array of keys to retrieve
+     * @returns {Object} Object with requested keys
+     */
+    getMultiple(...keys) {
+        const result = {};
+        keys.forEach(key => {
+            result[key] = this.get(key);
+        });
+        return result;
     }
 }
 

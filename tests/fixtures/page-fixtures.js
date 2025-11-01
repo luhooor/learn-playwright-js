@@ -1,6 +1,6 @@
 import { test as base, chromium } from "@playwright/test";
 import { LoginPage } from "../../pages/login-page.js";
-import { GoogleSheetsManager } from "../../utils/google-sheets.js";
+import { GoogleSheetsManager, TestDataProperties } from "../../utils/google-sheets.js";
 import { Logger } from "../../utils/logger.js";
 import { envConfig } from "../../utils/environment-config.js";
 
@@ -205,6 +205,35 @@ export const test = base.extend({
     }
 
     await use(testData);
+  },
+
+  // Environment-specific test data properties fixture
+  // Usage: const username = testDataProperties.get('username')
+  testDataProperties: async ({ sheetsManager }, use) => {
+    const currentEnv = process.env.ENVIRONMENT || 'staging';
+
+    // Create a function to get test data by test name
+    const getTestData = async (testName) => {
+      if (!sheetsManager) {
+        logger.warn(`Google Sheets not available, cannot fetch test data for "${testName}"`);
+        return new TestDataProperties({});
+      }
+
+      try {
+        return await sheetsManager.getTestDataByEnvironment(testName, currentEnv);
+      } catch (error) {
+        logger.error(`Failed to get test data for "${testName}": ${error.message}`);
+        return new TestDataProperties({});
+      }
+    };
+
+    // Return object with getTestData method
+    const testDataProperties = {
+      getTestData,
+      currentEnvironment: currentEnv,
+    };
+
+    await use(testDataProperties);
   },
 });
 

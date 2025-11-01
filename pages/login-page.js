@@ -1,6 +1,5 @@
 import { BasePage } from '../utils/base-page.js';
 import { locator } from '../utils/locator.js';
-import * as common from '../utils/common-function.js';
 
 export class LoginPage extends BasePage {
     constructor(page) {
