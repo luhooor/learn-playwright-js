@@ -9,7 +9,15 @@
     "test:headed": "npx playwright test --headed",
     "test:ui": "npx playwright test --ui",
     "test:debug": "npx playwright test --debug",
-    "test:sauce": "npx playwright test --grep=\"@sauce\"",
+    "test:sauce": "TEST_SUITE=sauce-labs npx playwright test tests/sauce-labs",
+    "test:sauce:headed": "TEST_SUITE=sauce-labs npx playwright test tests/sauce-labs --headed",
+    "test:sauce:debug": "TEST_SUITE=sauce-labs npx playwright test tests/sauce-labs --debug",
+    "test:tiket": "TEST_SUITE=tiket npx playwright test tests/tiket",
+    "test:tiket:headed": "TEST_SUITE=tiket npx playwright test tests/tiket --headed",
+    "test:tiket:debug": "TEST_SUITE=tiket npx playwright test tests/tiket --debug",
+    "test:tiket:staging": "TEST_SUITE=tiket ENVIRONMENT=staging npx playwright test tests/tiket",
+    "test:tiket:preprod": "TEST_SUITE=tiket ENVIRONMENT=preprod npx playwright test tests/tiket",
+    "test:tiket:prod": "TEST_SUITE=tiket ENVIRONMENT=production npx playwright test tests/tiket",
     "report": "npx playwright show-report test-results/html-report",
     "install:browsers": "npx playwright install",
     "demo": "node scripts/demo.js",
@@ -26,12 +34,14 @@
   "author": "SDET Team",
   "license": "MIT",
   "devDependencies": {
+    "@faker-js/faker": "^9.9.0",
     "@playwright/test": "^1.40.0"
   },
   "dependencies": {
-    "googleapis": "^128.0.0",
+    "allure-playwright": "^2.10.0",
     "dotenv": "^16.3.1",
+    "googleapis": "^128.0.0",
     "winston": "^3.11.0",
-    "allure-playwright": "^2.10.0"
+    "faker": "^9.1.0"
   }
 }

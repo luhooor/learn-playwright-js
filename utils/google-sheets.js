@@ -1,5 +1,6 @@
 import { google } from 'googleapis';
 import dotenv from 'dotenv';
+import { Logger } from './logger.js';
 
 dotenv.config();
 
@@ -8,6 +9,7 @@ export class GoogleSheetsManager {
         this.auth = null;
         this.sheets = null;
         this.spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID;
+        this.logger = new Logger();
     }
 
     /**
@@ -90,10 +92,10 @@ export class GoogleSheetsManager {
                 return { testname: String(testname).trim(), testdataRaw: raw, testdata: this.parseTestData(raw) };
             });
 
-            console.log(`✅ Retrieved ${out.length} rows from ${sheetName}`);
+            this.logger.info(`Retrieved ${out.length} rows from ${sheetName}`);
             return out;
         } catch (error) {
-            console.error('❌ Error fetching TestData sheet:', error.message);
+            this.logger.error(`Error fetching TestData sheet: ${error.message}`);
             throw error;
         }
     }
@@ -117,9 +119,9 @@ export class GoogleSheetsManager {
             // Create sheets API instance
             this.sheets = google.sheets({ version: 'v4', auth: this.auth });
 
-            console.log('✅ Google Sheets authentication successful');
+            this.logger.info('Google Sheets authentication successful');
         } catch (error) {
-            console.error('❌ Google Sheets authentication failed:', error.message);
+            this.logger.error('Google Sheets authentication failed', error);
             throw error;
         }
     }
@@ -143,7 +145,7 @@ export class GoogleSheetsManager {
                 });
                 const rows = response.data.values;
                 if (!rows || rows.length === 0) {
-                    console.log('No data found in the specified range');
+                    this.logger.info('No data found in the specified range');
                     return [];
                 }
                 const headers = rows[0];
@@ -155,7 +157,7 @@ export class GoogleSheetsManager {
                     });
                     return obj;
                 });
-                console.log(`✅ Retrieved ${testData.length} rows of test data from ${range}`);
+                this.logger.info(`Retrieved ${testData.length} rows of test data from ${range}`);
                 return testData;
             }
 
@@ -164,12 +166,12 @@ export class GoogleSheetsManager {
             const testName = String(range).trim();
             const found = all.find(r => String(r.testname).trim() === testName || String(r.testname).trim().toLowerCase() === testName.toLowerCase());
             if (!found) {
-                console.log(`No test row named '${testName}' found in TestData`);
+                this.logger.info(`No test row named '${testName}' found in TestData`);
                 return null;
             }
             return found.testdata;
         } catch (error) {
-            console.error('❌ Error fetching test data from Google Sheets:', error.message);
+            this.logger.error('Error fetching test data from Google Sheets:', error.message);
             throw error;
         }
     }
@@ -186,7 +188,7 @@ export class GoogleSheetsManager {
                 const testData = await this.getTestData('Users!A1:D10');
                 const user = testData.find(row => row.user_type === userType);
                 if (user) {
-                    console.log(`✅ Retrieved credentials for user type: ${userType} (from Users sheet)`);
+                    this.logger.info(`Retrieved credentials for user type: ${userType} (from Users sheet)`);
                     return { username: user.username, password: user.password, user_type: user.user_type, description: user.description };
                 }
             } catch (e) {
@@ -198,10 +200,10 @@ export class GoogleSheetsManager {
             const found = all.find(r => r.testdata && r.testdata.user_type === userType);
             if (!found) throw new Error(`User type '${userType}' not found in TestData`);
             const td = found.testdata;
-            console.log(`✅ Retrieved credentials for user type: ${userType} (from TestData)`);
+            this.logger.info(`Retrieved credentials for user type: ${userType} (from TestData)`);
             return { username: td.username || td.user, password: td.password, user_type: td.user_type, description: td.description };
         } catch (error) {
-            console.error('❌ Error fetching user credentials:', error.message);
+            this.logger.error('Error fetching user credentials:', error.message);
             throw error;
         }
     }
@@ -216,7 +218,7 @@ export class GoogleSheetsManager {
             try {
                 const testData = await this.getTestData('Products!A1:F20');
                 if (Array.isArray(testData) && testData.length > 0) {
-                    console.log(`✅ Retrieved ${testData.length} products from Products sheet`);
+                    this.logger.info(`Retrieved ${testData.length} products from Products sheet`);
                     return testData;
                 }
             } catch (e) { /* continue */ }
@@ -232,10 +234,10 @@ export class GoogleSheetsManager {
                     }
                 }
             }
-            console.log(`✅ Retrieved ${products.length} products from TestData`);
+            this.logger.info(`Retrieved ${products.length} products from TestData`);
             return products;
         } catch (error) {
-            console.error('❌ Error fetching product data:', error.message);
+            this.logger.error('Error fetching product data:', error.message);
             throw error;
         }
     }
@@ -251,17 +253,17 @@ export class GoogleSheetsManager {
             try {
                 const testData = await this.getTestData(`${testSuite}!A1:G50`);
                 const scenarios = testData.filter(row => String(row.enabled).toLowerCase() === 'true');
-                console.log(`✅ Retrieved ${scenarios.length} enabled test scenarios for ${testSuite} (from sheet)`);
+                this.logger.info(`Retrieved ${scenarios.length} enabled test scenarios for ${testSuite} (from sheet)`);
                 return scenarios;
             } catch (e) { /* continue to TestData */ }
 
             // Fallback: collect from TestData where testname starts with the suite name
             const all = await this.getAllTestData();
             const scenarios = all.filter(r => r.testname && r.testname.toLowerCase().startsWith(testSuite.toLowerCase())).map(r => ({ testname: r.testname, ...r.testdata }));
-            console.log(`✅ Retrieved ${scenarios.length} enabled test scenarios for ${testSuite} (from TestData)`);
+            this.logger.info(`Retrieved ${scenarios.length} enabled test scenarios for ${testSuite} (from TestData)`);
             return scenarios;
         } catch (error) {
-            console.error('❌ Error fetching test scenarios:', error.message);
+            this.logger.error('Error fetching test scenarios:', error.message);
             throw error;
         }
     }
@@ -278,7 +280,7 @@ export class GoogleSheetsManager {
                 const config = {};
                 testData.forEach(row => { if (row.key && row.value) config[row.key] = row.value; });
                 if (Object.keys(config).length > 0) {
-                    console.log('✅ Retrieved configuration data from Config sheet');
+                    this.logger.info('Retrieved configuration data from Config sheet');
                     return config;
                 }
             } catch (e) { /* continue */ }
@@ -287,7 +289,7 @@ export class GoogleSheetsManager {
             const all = await this.getAllTestData();
             const configRow = all.find(r => r.testname && r.testname.toLowerCase() === 'config');
             if (configRow && configRow.testdata) {
-                console.log('✅ Retrieved configuration data from TestData row "Config"');
+                this.logger.info('Retrieved configuration data from TestData row "Config"');
                 return configRow.testdata;
             }
 
@@ -298,10 +300,10 @@ export class GoogleSheetsManager {
                     if (k.startsWith('config.')) config[k.replace(/^config\./, '')] = v;
                 }
             }
-            console.log('✅ Retrieved configuration data from TestData (aggregated)');
+            this.logger.info('Retrieved configuration data from TestData (aggregated)');
             return config;
         } catch (error) {
-            console.error('❌ Error fetching configuration data:', error.message);
+            this.logger.error('Error fetching configuration data:', error.message);
             throw error;
         }
     }

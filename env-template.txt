@@ -1,9 +1,56 @@
 # Copy this file to .env and fill in your actual values
+# This is the comprehensive environment template for tiket.com testing framework
 
-# Base URL for testing
-BASE_URL=https://www.saucedemo.com
+# =============================================================================
+# ENVIRONMENT SELECTION
+# =============================================================================
+# Choose your environment: staging, preprod, production
+ENVIRONMENT=staging
 
-# Google Sheets Configuration (Optional - framework works without this)
+# =============================================================================
+# ENVIRONMENT URLS (tiket.com)
+# =============================================================================
+# Set BASE_URL based on your ENVIRONMENT or override manually
+
+# Staging Environment
+STAGING_URL=https://gatotkaca.tiket.com
+
+# Preproduction Environment  
+PREPROD_URL=https://preprod.tiket.com
+
+# Production Environment
+PRODUCTION_URL=https://tiket.com
+
+# Sauce Labs Demo Site (used for Sauce Labs tests)
+SAUCE_LABS_URL=https://www.saucedemo.com
+
+# Base URL (will be set based on TEST_SUITE and ENVIRONMENT if not explicitly set)
+# Leave empty to auto-select based on TEST_SUITE and ENVIRONMENT variables above
+BASE_URL=
+
+# =============================================================================
+# TEST ENVIRONMENT SETTINGS
+# =============================================================================
+TEST_ENV=development
+LOG_LEVEL=info
+HEADLESS=true
+SLOW_MO=0
+
+# =============================================================================
+# BROWSER CONFIGURATION
+# =============================================================================
+# Browser selection: chromium, firefox, webkit, mobile-chrome, mobile-safari
+BROWSER=chromium
+
+# Run tests in parallel: true or false
+PARALLEL_TESTS=false
+
+# Number of workers for parallel execution
+WORKERS=1
+
+# =============================================================================
+# GOOGLE SHEETS CONFIGURATION (Optional)
+# =============================================================================
 # To set up Google Sheets integration:
 # 1. Create a Google Cloud project
 # 2. Enable Google Sheets API  
@@ -20,13 +67,42 @@ GOOGLE_SHEETS_CLIENT_CERT_URL=https://www.googleapis.com/robot/v1/metadata/x509/
 # Google Spreadsheet ID (from the URL: https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/edit)
 GOOGLE_SPREADSHEET_ID=your_spreadsheet_id_here
 
-# Test Environment Settings
-TEST_ENV=development
-LOG_LEVEL=info
-HEADLESS=true
-SLOW_MO=0
-
-# Optional: Sauce Labs Configuration (for remote testing)
+# =============================================================================
+# OPTIONAL: SAUCE LABS CONFIGURATION (for remote testing)
+# =============================================================================
 SAUCE_USERNAME=your_sauce_username
 SAUCE_ACCESS_KEY=your_sauce_access_key
+
+# =============================================================================
+# OPTIONAL: TIKET.COM SPECIFIC TEST ACCOUNTS
+# =============================================================================
+# Admin accounts
+ADMIN_USERNAME=your_admin_username
+ADMIN_PASSWORD=your_admin_password
+
+# Standard user accounts
+STANDARD_USER_USERNAME=your_standard_user
+STANDARD_USER_PASSWORD=your_standard_password
+
+# Test user accounts
+TEST_USER_USERNAME=your_test_user
+TEST_USER_PASSWORD=your_test_user_password
+
+# =============================================================================
+# NOTIFICATIONS (Optional)
+# =============================================================================
+# Slack webhook for test result notifications
+SLACK_WEBHOOK_URL=your_slack_webhook_url
+
+# Email notifications
+NOTIFICATION_EMAIL=your_email@example.com
+
+# =============================================================================
+# FEATURE FLAGS (Optional)
+# =============================================================================
+# Enable/disable specific test features
+ENABLE_SCREENSHOTS=true
+ENABLE_VIDEOS=true
+ENABLE_TRACES=true
+ENABLE_GOOGLE_SHEETS=false
 

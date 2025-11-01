@@ -5,7 +5,7 @@ test.describe('Sauce Labs - Login Functionality @sauce', () => {
         await loginPage.navigateToLogin();
     });
 
-    test('SL001 - Standard user successful login', async ({ loginPage, testData, logger }) => {
+    test('SL001 - Standard user successful login @smoke', async ({ loginPage, testData, logger }) => {
         logger.step('Test Start', 'Testing standard user login functionality');
 
         const standardUser = testData.users.find(user => user.user_type === 'standard_user');
@@ -44,7 +44,7 @@ test.describe('Sauce Labs - Login Functionality @sauce', () => {
         });
     });
 
-    test('SL011 - Invalid credentials login attempt', async ({ loginPage, logger }) => {
+    test('SL011 - Invalid credentials login attempt @smoke', async ({ loginPage, logger }) => {
         logger.step('Test Start', 'Testing login with invalid credentials');
 
         await test.step('Attempt login with invalid credentials', async () => {
@@ -56,7 +56,7 @@ test.describe('Sauce Labs - Login Functionality @sauce', () => {
         });
     });
 
-    test('SL012 - Empty credentials validation', async ({ loginPage, logger }) => {
+    test('SL012 - Empty credentials validation @smoke', async ({ loginPage, logger }) => {
         logger.step('Test Start', 'Testing login form validation with empty fields');
 
         await test.step('Attempt login with empty username', async () => {

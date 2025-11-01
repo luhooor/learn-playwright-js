@@ -3,13 +3,19 @@ import { test } from '@playwright/test';
 
 export class Logger {
     constructor() {
+        // Custom format: [Timestamp][LEVEL] - message
+        const cleanFormat = winston.format.printf(({ timestamp, level, message }) => {
+            const levelUpper = level.toUpperCase();
+            return `[${timestamp}][${levelUpper}] - ${message}`;
+        });
+
         // Create Winston logger for file logging
         this.fileLogger = winston.createLogger({
             level: process.env.LOG_LEVEL || 'info',
             format: winston.format.combine(
-                winston.format.timestamp(),
+                winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
                 winston.format.errors({ stack: true }),
-                winston.format.json()
+                cleanFormat
             ),
             transports: [
                 new winston.transports.File({
@@ -20,7 +26,10 @@ export class Logger {
                     filename: 'test-results/logs/combined.log'
                 }),
                 new winston.transports.Console({
-                    format: winston.format.simple()
+                    format: winston.format.combine(
+                        winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+                        cleanFormat
+                    )
                 })
             ],
         });
@@ -33,16 +42,13 @@ export class Logger {
     info(message) {
         try {
             // Log to Playwright test reporter (will appear in HTML report) if in test context
-            test.info(message);
+            test.info(`ℹ️  ${message}`);
         } catch (error) {
             // Not in test context, skip Playwright logging
         }
 
-        // Log to file
+        // Log to file (which also logs to console via transport)
         this.fileLogger.info(message);
-
-        // Also log to console for immediate feedback
-        console.log(`ℹ️  ${message}`);
     }
 
     /**
@@ -55,16 +61,13 @@ export class Logger {
 
         try {
             // Log to Playwright test reporter if in test context
-            test.info(`❌ ERROR: ${errorMessage}`);
+            test.info(`❌ ${errorMessage}`);
         } catch (err) {
             // Not in test context, skip Playwright logging
         }
 
-        // Log to file
-        this.fileLogger.error(errorMessage, error);
-
-        // Also log to console
-        console.error(`❌ ${errorMessage}`);
+        // Log to file (which also logs to console via transport)
+        this.fileLogger.error(errorMessage);
     }
 
     /**
@@ -74,16 +77,13 @@ export class Logger {
     warn(message) {
         try {
             // Log to Playwright test reporter if in test context
-            test.info(`⚠️  WARNING: ${message}`);
+            test.info(`⚠️  ${message}`);
         } catch (error) {
             // Not in test context, skip Playwright logging
         }
 
-        // Log to file
+        // Log to file (which also logs to console via transport)
         this.fileLogger.warn(message);
-
-        // Also log to console
-        console.warn(`⚠️  ${message}`);
     }
 
     /**
@@ -93,17 +93,14 @@ export class Logger {
     debug(message) {
         try {
             // Log to Playwright test reporter if in test context
-            test.info(`🐛 DEBUG: ${message}`);
+            test.info(`🐛 ${message}`);
         } catch (error) {
             // Not in test context, skip Playwright logging
         }
 
-        // Log to file
-        this.fileLogger.debug(message);
-
-        // Also log to console in debug mode
+        // Log to file only in debug mode (which also logs to console via transport)
         if (process.env.LOG_LEVEL === 'debug') {
-            console.log(`🐛 ${message}`);
+            this.fileLogger.debug(message);
         }
     }
 
@@ -113,20 +110,17 @@ export class Logger {
      * @param {string} description - Step description
      */
     step(stepName, description = '') {
-        const message = description ? `${stepName}: ${description}` : stepName;
+        const message = description ? `STEP: ${stepName} - ${description}` : `STEP: ${stepName}`;
 
         try {
             // Log to Playwright test reporter with step formatting if in test context
-            test.info(`🔸 STEP: ${message}`);
+            test.info(`🔸 ${message}`);
         } catch (error) {
             // Not in test context, skip Playwright logging
         }
 
-        // Log to file
-        this.fileLogger.info(`STEP: ${message}`);
-
-        // Also log to console with highlighting
-        console.log(`\n🔸 STEP: ${message}\n`);
+        // Log to file (which also logs to console via transport)
+        this.fileLogger.info(message);
     }
 
     /**
@@ -135,20 +129,17 @@ export class Logger {
      * @param {string} target - Target of the action
      */
     action(action, target = '') {
-        const message = target ? `${action} on ${target}` : action;
+        const message = target ? `ACTION: ${action} on ${target}` : `ACTION: ${action}`;
 
         try {
             // Log to Playwright test reporter if in test context
-            test.info(`🎯 ACTION: ${message}`);
+            test.info(`🎯 ${message}`);
         } catch (error) {
             // Not in test context, skip Playwright logging
         }
 
-        // Log to file
-        this.fileLogger.info(`ACTION: ${message}`);
-
-        // Also log to console
-        console.log(`🎯 ${message}`);
+        // Log to file (which also logs to console via transport)
+        this.fileLogger.info(message);
     }
 
     /**
@@ -157,25 +148,22 @@ export class Logger {
      * @param {boolean} passed - Whether assertion passed
      */
     assertion(assertion, passed = true) {
-        const status = passed ? '✅ PASSED' : '❌ FAILED';
+        const status = passed ? 'ASSERTION PASSED' : 'ASSERTION FAILED';
         const message = `${status}: ${assertion}`;
 
         try {
             // Log to Playwright test reporter if in test context
-            test.info(message);
+            test.info(passed ? `✅ ${message}` : `❌ ${message}`);
         } catch (error) {
             // Not in test context, skip Playwright logging
         }
 
-        // Log to file
+        // Log to file (which also logs to console via transport)
         if (passed) {
-            this.fileLogger.info(`ASSERTION PASSED: ${assertion}`);
+            this.fileLogger.info(message);
         } else {
-            this.fileLogger.error(`ASSERTION FAILED: ${assertion}`);
+            this.fileLogger.error(message);
         }
-
-        // Also log to console
-        console.log(message);
     }
 }
 
